@@ -15,3 +15,5 @@ API_URL=$(aws cloudformation describe-stacks --stack-name helius-webhook-stack -
 
 echo "Webhook URL: $API_URL"
 echo "Test with: curl -X POST -H \"Content-Type: application/json\" -d '{\"tokenTransfers\": [{\"fromUserAccount\": \"testuser\", \"mint\": \"testtoken\", \"tokenAmount\": 100}]}' $API_URL"
+
+./update_helius_webhook.py
