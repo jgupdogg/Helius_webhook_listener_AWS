@@ -4,7 +4,6 @@ import subprocess
 import json
 import logging
 import requests
-# import helius_api_key from .env
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -15,17 +14,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-
 # import HELIUS_API_KEY from .env
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
 
+def get_latest_stack_name():
+    """Get the latest stack name from the .stack_info file."""
+    try:
+        with open('.stack_info', 'r') as f:
+            for line in f:
+                if line.startswith('LATEST_STACK_NAME='):
+                    return line.strip().split('=')[1]
+        
+        # If no stack name found in file, try the original name as fallback
+        return "helius-webhook-stack"
+    except Exception as e:
+        logger.error(f"Error reading stack name from .stack_info: {e}")
+        # Default to original stack name if file doesn't exist
+        return "helius-webhook-stack"
+
 def get_webhook_url_from_aws():
     """Get the webhook URL from AWS CloudFormation."""
+    stack_name = get_latest_stack_name()
+    logger.info(f"Using stack name: {stack_name}")
+    
     try:
         cmd = [
             "aws", "cloudformation", "describe-stacks",
-            "--stack-name", "helius-webhook-stack",
+            "--stack-name", stack_name,
             "--query", "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue",
             "--output", "text"
         ]

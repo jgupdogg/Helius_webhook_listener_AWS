@@ -3,9 +3,10 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "helius-webhook-stack"
-s3_bucket = "sam-deployment-bucket-418295715028"
+s3_bucket = "helius-webhook-deployment-418295715028"
 s3_prefix = "helius-webhook"
 region = "us-east-1"
-confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "S3BucketNamePrefix=\"helius-webhook\""
+parameter_overrides = "SnowflakePassword=RESU_WOLFRIA AirflowPassword=admin"
+confirm_changeset = false
+resolve_s3 = false
