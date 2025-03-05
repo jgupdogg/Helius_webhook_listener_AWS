@@ -1,3 +1,6 @@
 boto3
-snowflake-connector-python
 requests
+sqlalchemy
+snowflake-sqlalchemy
+python-dotenv
+cryptography

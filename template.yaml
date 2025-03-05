@@ -1,67 +1,105 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Webhook Listener for Helius with Snowflake integration
+Description: Helius Webhook Handler with Lambda Layers
 
 Parameters:
-  S3BucketNamePrefix:
+  SnowflakeAccount:
     Type: String
-    Description: Prefix for the S3 bucket name
-    Default: helius-webhook
+    Default: "your-account"
+  
+  SnowflakeUser:
+    Type: String
+    Default: "your-user"
+  
   SnowflakePassword:
     Type: String
-    Description: Password for Snowflake connection
     NoEcho: true
+  
+  SnowflakeWarehouse:
+    Type: String
+    Default: "DEV_WH"
+  
+  SnowflakeDatabase:
+    Type: String
+    Default: "DEV"
+  
+  SnowflakeSchema:
+    Type: String
+    Default: "BRONZE"
+  
+  SnowflakeRole:
+    Type: String
+    Default: "AIRFLOW_ROLE"
+  
+  AirflowEndpoint:
+    Type: String
+    Default: "http://52.205.187.101:8080"
+  
+  AirflowUsername:
+    Type: String
+    Default: "admin"
+  
   AirflowPassword:
     Type: String
-    Description: Password for Airflow connection
     NoEcho: true
 
 Resources:
-  WebhookFunction:
+  SnowflakeLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: snowflake-layer
+      Description: Dependencies for Snowflake connectivity
+      ContentUri: ./layers/snowflake_layer/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Retain
+
+  UtilityLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: utility-layer
+      Description: Utility dependencies like requests and boto3
+      ContentUri: ./layers/utility_layer/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Retain
+
+  HeliusWebhookFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./package/
+      CodeUri: ./lambda/
       Handler: lambda_function.lambda_handler
       Runtime: python3.11
-      Timeout: 60
+      Timeout: 30
       MemorySize: 256
+      Layers:
+        - !Ref SnowflakeLayer
+        - !Ref UtilityLayer
       Environment:
         Variables:
-          S3_BUCKET: !Ref RawDataBucket
-          SNOWFLAKE_ACCOUNT: dhpplkl-fxb50377
-          SNOWFLAKE_USER: AIRFLOW_USER
+          SNOWFLAKE_ACCOUNT: !Ref SnowflakeAccount
+          SNOWFLAKE_USER: !Ref SnowflakeUser
           SNOWFLAKE_PASSWORD: !Ref SnowflakePassword
-          SNOWFLAKE_WAREHOUSE: DEV_WH
-          SNOWFLAKE_DATABASE: DEV
-          SNOWFLAKE_SCHEMA: BRONZE
-          SNOWFLAKE_ROLE: AIRFLOW_ROLE
-          AIRFLOW_ENDPOINT: http://52.205.187.101:8080
-          AIRFLOW_USERNAME: admin
+          SNOWFLAKE_WAREHOUSE: !Ref SnowflakeWarehouse
+          SNOWFLAKE_DATABASE: !Ref SnowflakeDatabase
+          SNOWFLAKE_SCHEMA: !Ref SnowflakeSchema
+          SNOWFLAKE_ROLE: !Ref SnowflakeRole
+          AIRFLOW_ENDPOINT: !Ref AirflowEndpoint
+          AIRFLOW_USERNAME: !Ref AirflowUsername
           AIRFLOW_PASSWORD: !Ref AirflowPassword
       Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref RawDataBucket
+        - AWSLambdaBasicExecutionRole
       Events:
-        WebhookAPI:
+        ApiEvent:
           Type: Api
           Properties:
-            Path: /webhooks
+            Path: /webhook
             Method: post
 
-  RawDataBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${S3BucketNamePrefix}-${AWS::AccountId}-${AWS::Region}"
- 
 Outputs:
   ApiUrl:
-    Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhooks"
-  
-  S3BucketName:
-    Description: "S3 Bucket for raw webhook data"
-    Value: !Ref RawDataBucket
-  
-  WebhookFunctionArn:
-    Description: "Lambda function ARN"
-    Value: !GetAtt WebhookFunction.Arn
+    Description: URL of the API endpoint
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook'
+  FunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt HeliusWebhookFunction.Arn

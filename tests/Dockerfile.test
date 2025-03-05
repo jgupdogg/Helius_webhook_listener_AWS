@@ -1,0 +1,19 @@
+FROM amazon/aws-lambda-python:3.11
+
+# Install system dependencies
+RUN yum update -y && yum install -y python3-devel
+
+# Copy the diagnostic script and requirements
+COPY snowflake_diagnostics.py /tmp/
+COPY .env /tmp/
+COPY requirements.txt /tmp/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Set the working directory
+WORKDIR /tmp
+
+# Use the Python interpreter to run the script
+ENTRYPOINT ["python3"]
+CMD ["snowflake_diagnostics.py"]

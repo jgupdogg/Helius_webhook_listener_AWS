@@ -1,0 +1,7 @@
+# Using specific versions known to work with Lambda
+snowflake-sqlalchemy
+snowflake-connector-python
+SQLAlchemy
+# Pinning cryptography to a version that works well in Lambda
+cryptography
+# Note: we're not using the latest version to avoid Rust compilation issues

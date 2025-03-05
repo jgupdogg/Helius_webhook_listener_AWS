@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Use a stable stack name
+STACK_NAME="helius-webhook-stack"
+echo "Using stable stack name: $STACK_NAME"
+
 # Load environment variables from .env file
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
@@ -16,33 +20,52 @@ if [ -z "$SNOWFLAKE_PASSWORD" ] || [ -z "$AIRFLOW_PASSWORD" ]; then
   exit 1
 fi
 
-# Generate a timestamp for unique stack name
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
-STACK_NAME="helius-webhook-stack-$TIMESTAMP"
-echo "Using stack name: $STACK_NAME"
-
 # Get AWS account ID
 AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 DEPLOYMENT_BUCKET="helius-webhook-deployment-$AWS_ACCOUNT"
 
 # Create deployment bucket if it doesn't exist
-echo "Making sure deployment bucket exists..."
-aws s3 mb s3://$DEPLOYMENT_BUCKET --region us-east-1 || true
+echo "Creating deployment bucket if it doesn't exist..."
+if ! aws s3 ls "s3://$DEPLOYMENT_BUCKET" 2>&1 > /dev/null; then
+  echo "Bucket doesn't exist. Creating it..."
+  aws s3 mb "s3://$DEPLOYMENT_BUCKET" --region us-east-1
+  
+  # Wait for bucket to be available
+  echo "Waiting for bucket to be available..."
+  aws s3api wait bucket-exists --bucket "$DEPLOYMENT_BUCKET"
+  
+  # Additional sleep to ensure bucket is fully available
+  echo "Bucket created. Waiting 5 seconds for propagation..."
+  sleep 5
+else
+  echo "Bucket already exists."
+fi
 
-# Install dependencies to a package directory
-echo "Installing dependencies..."
-rm -rf package/
-mkdir -p package
-pip install -r requirements.txt -t package/
+# Verify bucket is accessible
+echo "Verifying bucket access..."
+if ! aws s3 ls "s3://$DEPLOYMENT_BUCKET" > /dev/null; then
+  echo "Error: Cannot access bucket. Please check permissions."
+  exit 1
+fi
+echo "Bucket verification successful."
 
-# Copy lambda function to package directory
-echo "Copying lambda function code..."
-cp lambda_function.py package/
+# Check if stack already exists
+if aws cloudformation describe-stacks --stack-name $STACK_NAME &>/dev/null; then
+  echo "Stack $STACK_NAME already exists. Will update it."
+fi
 
-echo "Building SAM application..."
+# Prepare the lambda directory
+echo "Preparing Lambda function code..."
+mkdir -p lambda
+cp lambda_function.py lambda/
+
+# Build Lambda layers
+echo "Building Lambda layers..."
+chmod +x build_layers.sh
+./build_layers.sh
+
+echo "Building and deploying SAM application..."
 sam build
-
-echo "Deploying SAM application..."
 sam deploy \
   --stack-name $STACK_NAME \
   --s3-bucket $DEPLOYMENT_BUCKET \
@@ -50,7 +73,15 @@ sam deploy \
   --no-resolve-s3 \
   --parameter-overrides \
   "SnowflakePassword=$SNOWFLAKE_PASSWORD" \
-  "AirflowPassword=$AIRFLOW_PASSWORD"
+  "AirflowPassword=$AIRFLOW_PASSWORD" \
+  "SnowflakeAccount=${SNOWFLAKE_ACCOUNT}" \
+  "SnowflakeUser=${SNOWFLAKE_USER}" \
+  "SnowflakeWarehouse=${SNOWFLAKE_WAREHOUSE:-DEV_WH}" \
+  "SnowflakeDatabase=${SNOWFLAKE_DATABASE:-DEV}" \
+  "SnowflakeSchema=${SNOWFLAKE_SCHEMA:-BRONZE}" \
+  "SnowflakeRole=${SNOWFLAKE_ROLE:-AIRFLOW_ROLE}" \
+  "AirflowEndpoint=${AIRFLOW_ENDPOINT:-http://52.205.187.101:8080}" \
+  "AirflowUsername=${AIRFLOW_USERNAME:-admin}"
 
 echo "Retrieving API Gateway URL..."
 API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
@@ -58,5 +89,4 @@ API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "S
 echo "Webhook URL: $API_URL"
 echo "Test with: curl -X POST -H \"Content-Type: application/json\" -d '{\"tokenTransfers\": [{\"fromUserAccount\": \"testuser\", \"mint\": \"testtoken\", \"tokenAmount\": 100}]}' $API_URL"
 
-# Save stack name for later reference
-echo "LATEST_STACK_NAME=$STACK_NAME" > .stack_info
+echo "Deployment completed successfully!"

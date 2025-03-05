@@ -1,7 +1,6 @@
-# Python virtual environments
+# Python virtual environment
 venv/
 env/
-ENV/
 .env
 
 # Python cache files
@@ -9,46 +8,63 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
+*.so
+.Python
 
-# SAM/AWS build artifacts
-.aws-sam/
-package/
+# Distribution / packaging
+.Python
 build/
+develop-eggs/
 dist/
-layer/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Credentials and configuration
-.env
-*.pem
-*.key
-*_rsa
-.aws/
-credentials.json
-*password*
-*secret*
+# AWS SAM build directories
+.aws-sam/
+packaged/
+samconfig.toml
 
-# Development & editor files
+# Built Lambda layers
+layers/*/python/*/
+layers/*/python/*.dist-info/
+!layers/*/python/requirements.txt
+
+# Local testing files
+test-output.json
+response.json
+
+# Environment files
+.env.*
+.venv
+env/
+ENV/
+
+# IDE files
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
-Thumbs.db
+
+# Lambda package files generated during deployment
+lambda/*.zip
+package/
 
 # Logs
-*.log
 logs/
+*.log
 
-# Temporary files
-*.tmp
-temp/
-/tmp/
-
-# Stack info
-.stack_info
-
-# Deployment files that should be generated at deploy time
-samconfig.toml
+# Secrets (ensure these files are never committed)
+*password*.txt
+*secret*.txt
+*credential*.json
