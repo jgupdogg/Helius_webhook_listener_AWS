@@ -1,0 +1,54 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# SAM/AWS build artifacts
+.aws-sam/
+package/
+build/
+dist/
+layer/
+
+# Credentials and configuration
+.env
+*.pem
+*.key
+*_rsa
+.aws/
+credentials.json
+*password*
+*secret*
+
+# Development & editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+temp/
+/tmp/
+
+# Stack info
+.stack_info
+
+# Deployment files that should be generated at deploy time
+samconfig.toml
